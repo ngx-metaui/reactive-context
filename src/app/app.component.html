@@ -1,28 +1,50 @@
-<mc module="userPage">
-  <render></render>
-  <mc #parent class="user" operation="edit">
+<div>
+  <button (click)="changeClass()"> Change Class</button>
+  <button (click)="changeField()"> Change Field</button>
+  <button (click)="changeField2()"> Change Field2</button>
+  <button (click)="changeFirstName()"> Change firstName</button>
+  <button (click)="changeOp()"> Change Operation</button>
+  <hr/>
+  <b>Class:</b> {{this.classVal }},
+  <b>Field:</b> {{this.fieldVal }}
+</div>
+
+<hr/>
+<div >
+  <mc module="userPage" [formGroup]="formGroup">
     <render></render>
+    <mc #parent [class]="classVal" [operation]="operation" [object]="user">
+      <render></render>
 
-    <ng-container *ngTemplateOutlet="field;context:{$implicit: 'field1-template', parent: parent}">
-    </ng-container>
-    <ng-container *ngTemplateOutlet="field;context:{$implicit: 'field2-template', parent: parent}">
-    </ng-container>
-    <ng-container *ngTemplateOutlet="field;context:{$implicit: 'field3-template', parent: parent}">
-    </ng-container>
+      <ng-container *ngTemplateOutlet="field;context:{$implicit: 'field1-template', parent: parent}">
+      </ng-container>
 
-<!--    using it in the content executes CD, pretty wierd way-->
-<!--    <mc field="field4-Content">-->
-<!--      <render></render>-->
-<!--    </mc>-->
-    <!--    <mc field="age-Content">-->
-    <!--      <render></render>-->
-    <!--    </mc>-->
-    <field></field>
+      <mc field="field4-Content">
+        <render></render>
+      </mc>
+      <mc [field]="fieldVal">
+        <render></render>
 
+        <mc operation="view">
+          <render></render>
+
+          <mc [field]="field2Val">
+            <render></render>
+          </mc>
+
+        </mc>
+
+      </mc>
+      <field></field>
+
+    </mc>
   </mc>
-</mc>
+</div>
 
 
+<!--
+ when using ng template parent injection does not work so we need to pass it down using ng-container
+-->
 <ng-template #field let-name let-parent="parent">
   <mc [field]="name" [parentMC]="parent">
     <render></render>

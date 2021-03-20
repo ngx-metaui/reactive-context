@@ -1,20 +1,19 @@
 import {
-  AfterContentChecked,
-  AfterContentInit,
-  AfterViewChecked,
-  AfterViewInit,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ComponentFactoryResolver,
-  DoCheck,
   Input,
   OnChanges,
+  OnDestroy,
   OnInit,
   Optional,
   SimpleChanges,
   SkipSelf
 } from '@angular/core';
 import {Environment} from '../env.service';
+import {BehaviorSubject} from 'rxjs';
+import {ControlContainer, FormGroup} from '@angular/forms';
 
 export const ACTIVE_CNTX = 'CurrentMC';
 
@@ -22,14 +21,20 @@ export const ACTIVE_CNTX = 'CurrentMC';
 @Component({
   selector: 'mc',
   template: `
-    <b>{{ parentMC ? "WithParent" : "NoParent"}}</b> {{_parentBindings()}}
-    <ng-content></ng-content>`,
+    <div [ngStyle]="{'padding-left.px':level*10 }">
+      <ng-content></ng-content>
+    </div>
+
+
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class MetaContextComponent implements OnInit, AfterViewInit, AfterContentInit, AfterContentChecked,
-  AfterViewChecked, AfterViewInit, OnChanges, DoCheck {
+export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
   @Input()
   module: string;
+
+  @Input()
+  object: any;
 
   @Input()
   operation: string;
@@ -40,6 +45,7 @@ export class MetaContextComponent implements OnInit, AfterViewInit, AfterContent
   @Input()
   field: string;
 
+
   /**
    * Fixes the issue with nesting our code with ng-template where dependency inject does not work and component does not
    * inject parent
@@ -47,99 +53,73 @@ export class MetaContextComponent implements OnInit, AfterViewInit, AfterContent
   @Input()
   parentMC: MetaContextComponent;
 
+  contextChanged$: BehaviorSubject<string[]> = new BehaviorSubject<string[]>(null);
+
   protected _bindingsMap: Map<string, any>;
-
-
-  private _viewInitialized: boolean = false;
+  protected _form: FormGroup;
   private inputs: { propName: string, templateName: string }[];
-  private _contextCreated: boolean;
 
+
+  private currentStack: string[] = [];
+  private level: number = 0;
 
   get stack(): string[] {
-    return this.env.peak(ACTIVE_CNTX);
+    return this.currentStack;
   }
 
 
   constructor(private _cfr: ComponentFactoryResolver, private env: Environment,
+              private _cd: ChangeDetectorRef,
+              @Optional() private _controlContainer: ControlContainer,
               @Optional() @SkipSelf() private _parentMC?: MetaContextComponent) {
     this.inputs = this._cfr.resolveComponentFactory(MetaContextComponent).inputs;
-
-
   }
 
   ngOnInit(): void {
+    this._form = (this._controlContainer ? this._controlContainer.control as FormGroup : new FormGroup({}));
+
     if (!this.parentMC) {
       this.parentMC = this._parentMC;
     }
+    this._setDebugLevel();
 
-    this.initBindings();
+    this._initBindings();
     this.pushPop(true);
+    this._doUpdateViews();
+
     console.log('ngOnInit()', this.debugStrings());
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes[name] && (changes[name].currentValue !== changes[name].previousValue)) {
-      this.initBindings();
-
-      console.log('ngOnChanges()', this.debugStrings());
-    }
-  }
-
-  ngDoCheck(): void {
-    if (this._viewInitialized) {
-      // this.pushPop(true);
-      console.log('DoCheck()', this.debugStrings());
-    }
-
-  }
-
-  ngAfterContentInit(): void {
-    console.log('ngAfterContentInit()', this.debugStrings());
-  }
-
-
-  ngAfterContentChecked(): void {
-    console.log('ngAfterContentChecked()', this.debugStrings());
-  }
-
-  ngAfterViewChecked(): void {
-    if (this._viewInitialized) {
-      // this.pushPop(false);
-    }
-    console.log('ngAfterViewChecked()', this.debugStrings());
-  }
-
-  ngAfterViewInit(): void {
-    if (!this._viewInitialized) {
+    console.log('ngOnChanges()', changes);
+    if (!this.isFirstChange(changes)) {
+      this._initBindings();
       this.pushPop(false);
-      console.log('ngAfterViewInit()', this.debugStrings());
-      this._viewInitialized = true;
+      this.pushPop(true);
+      this._doUpdateViews();
+      this._cd.detectChanges();
     }
+
   }
+
+  private isFirstChange(changes: SimpleChanges): boolean {
+    for (const input of this.inputs) {
+      if (changes[input.propName] && changes[input.propName].firstChange) {
+        return true;
+      }
+    }
+    return false;
+  }
+
 
   private pushPop(isPush: boolean): void {
-    let stack: string[] = this.stack;
-    if (!stack) {
-      stack = [];
-      this._contextCreated = true;
-      this.env.push(ACTIVE_CNTX, stack);
-    }
-
-
     if (isPush) {
       let line = '(';
       this._bindingsMap.forEach((v, k) => line += `${k}=>${v}; `);
       line += ')';
-
-      stack.push(line);
-      if (!stack) {
-        this.env.push(ACTIVE_CNTX, stack);
-      }
+      this.currentStack.push(line);
     } else {
-      stack.pop();
-      if (this._contextCreated) {
-        this.env.pop(ACTIVE_CNTX);
-      }
+      this.currentStack.pop();
     }
   }
 
@@ -152,31 +132,55 @@ export class MetaContextComponent implements OnInit, AfterViewInit, AfterContent
     stack.forEach((record) => {
       contexPath += `${record}; `;
     });
-
     return `${contexPath}`;
   }
 
-  private initBindings(): void {
-    // this._bindingsMap = this.parentMC ? new Map<string, any>(this.parentMC._bindingsMap) : new Map<string, any>();
-    this._bindingsMap = new Map<string, any>();
+  private _initBindings(): void {
+    this._bindingsMap = this.parentMC ? new Map<string, any>(this.parentMC._bindingsMap) : new Map<string, any>();
 
     this.inputs.forEach((input) => {
       if (input.propName !== 'parentMC' && this[input.propName]) {
-        this._bindingsMap.set(input.propName, this[input.propName]);
+        if (this._bindingsMap.has(input.propName)) {
+          this._bindingsMap.set(input.propName + '-1', this[input.propName]);
+        } else {
+          this._bindingsMap.set(input.propName, this[input.propName]);
+        }
       }
     });
-  }
 
-  _parentBindings(): string {
-    if (!this.parentMC) {
-      return '';
+    if (this.object) {
+      this._form.valueChanges.subscribe((item) => {
+        console.log('Value Changed');
+        console.log(item);
+
+        this._doUpdateViews();
+      });
+
+      this._form.statusChanges.subscribe((item) => {
+        console.log('Value Changed');
+        console.log(item);
+
+        this._doUpdateViews();
+      });
     }
-    let bindings = '[';
-    this.parentMC._bindingsMap.forEach((v, k) => bindings += `${k}:${v}; `);
-    bindings += ']';
 
-    return bindings;
   }
 
+  private _doUpdateViews(): void {
+    this.contextChanged$.next(this.currentStack);
+    this._cd.detectChanges();
+  }
+
+  private _setDebugLevel(): void {
+    let mc: MetaContextComponent = this.parentMC;
+    this.level = 1;
+    while (mc) {
+      mc = mc.parentMC;
+      this.level++;
+    }
+  }
+
+  ngOnDestroy(): void {
+  }
 
 }

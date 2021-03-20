@@ -1,30 +1,38 @@
-import {ChangeDetectionStrategy, Component, DoCheck, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit} from '@angular/core';
 import {MetaContextComponent} from '../meta-context/meta-context.component';
 
 @Component({
   selector: 'render',
   template: `
     <div>
-      <li>{{stackData | json}}</li>
+      => {{stackData | json}}  ({{renderedTimes}})
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class RendererComponent implements OnInit, DoCheck {
+export class RendererComponent implements OnInit {
   renderedTimes = 0;
   stackData = '';
 
-  constructor(public mc: MetaContextComponent) {
+  constructor(public mc: MetaContextComponent, private _cd: ChangeDetectorRef) {
   }
 
   ngOnInit(): void {
-    this.mc.stack.forEach((item) => {
-      this.stackData += `${item} `;
+    this.mc.contextChanged$.subscribe((stack) => {
+      this._handleContextChanged(stack);
+
     });
     this.renderedTimes++;
   }
 
-  ngDoCheck(): void {
+  private _handleContextChanged(stack: string[]): void {
+    console.log('rendering: ', stack);
+    this.stackData = '';
+    this.mc.stack.forEach((item) => {
+      this.stackData += `${item} `;
+    });
+
     this.renderedTimes++;
+    this._cd.detectChanges();
   }
 }

@@ -1,19 +1,28 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import {ChangeDetectionStrategy, Component, DoCheck, OnInit} from '@angular/core';
 
 @Component({
   selector: 'field2',
   template: `
+
     <mc field="birthdate-childView">
       <render></render>
     </mc>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class Field2Component implements OnInit {
+export class Field2Component implements OnInit, DoCheck {
 
-  constructor() { }
+  renderedTimes = 1;
+
+  constructor() {
+  }
 
   ngOnInit(): void {
   }
+
+  ngDoCheck(): void {
+    this.renderedTimes++;
+  }
+
 
 }
