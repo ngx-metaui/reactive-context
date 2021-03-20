@@ -3,6 +3,7 @@ import {
   ChangeDetectorRef,
   Component,
   ComponentFactoryResolver,
+  DoCheck,
   Input,
   OnChanges,
   OnDestroy,
@@ -29,7 +30,7 @@ export const ACTIVE_CNTX = 'CurrentMC';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
+export class MetaContextComponent implements OnInit, OnChanges, OnDestroy, DoCheck {
   @Input()
   module: string;
 
@@ -54,6 +55,8 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
   parentMC: MetaContextComponent;
 
   contextChanged$: BehaviorSubject<string[]> = new BehaviorSubject<string[]>(null);
+  level: number = 0;
+
 
   protected _bindingsMap: Map<string, any>;
   protected _form: FormGroup;
@@ -61,7 +64,7 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
 
 
   private currentStack: string[] = [];
-  private level: number = 0;
+
 
   get stack(): string[] {
     return this.currentStack;
@@ -87,7 +90,7 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
     this.pushPop(true);
     this._doUpdateViews();
 
-    console.log('ngOnInit()', this.debugStrings());
+    console.log('ngOnInit()', this.currentStack);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -101,6 +104,11 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
     }
 
   }
+
+  ngDoCheck(): void {
+    console.log('ngDoCheck => ', this.currentStack);
+  }
+
 
   private isFirstChange(changes: SimpleChanges): boolean {
     for (const input of this.inputs) {
@@ -123,17 +131,6 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  debugStrings(): string {
-    let contexPath = '';
-    const stack: string[] = this.env.peak(ACTIVE_CNTX);
-    if (!stack) {
-      return '';
-    }
-    stack.forEach((record) => {
-      contexPath += `${record}; `;
-    });
-    return `${contexPath}`;
-  }
 
   private _initBindings(): void {
     this._bindingsMap = this.parentMC ? new Map<string, any>(this.parentMC._bindingsMap) : new Map<string, any>();
@@ -154,6 +151,7 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
         console.log(item);
 
         this._doUpdateViews();
+
       });
 
       this._form.statusChanges.subscribe((item) => {
@@ -168,7 +166,7 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy {
 
   private _doUpdateViews(): void {
     this.contextChanged$.next(this.currentStack);
-    this._cd.detectChanges();
+    // this._cd.markForCheck();
   }
 
   private _setDebugLevel(): void {

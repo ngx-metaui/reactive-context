@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck, OnInit} from '@angular/core';
 import {MetaContextComponent} from '../meta-context/meta-context.component';
 
 @Component({
@@ -10,7 +10,7 @@ import {MetaContextComponent} from '../meta-context/meta-context.component';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class RendererComponent implements OnInit {
+export class RendererComponent implements OnInit, DoCheck {
   renderedTimes = 0;
   stackData = '';
 
@@ -25,14 +25,19 @@ export class RendererComponent implements OnInit {
     this.renderedTimes++;
   }
 
+  ngDoCheck(): void {
+    console.log('Render => ', this.mc.stack + ' -- ' + this.renderedTimes);
+    this.renderedTimes++;
+    this._cd.detectChanges();
+
+  }
+
+
   private _handleContextChanged(stack: string[]): void {
     console.log('rendering: ', stack);
     this.stackData = '';
     this.mc.stack.forEach((item) => {
       this.stackData += `${item} `;
     });
-
-    this.renderedTimes++;
-    this._cd.detectChanges();
   }
 }

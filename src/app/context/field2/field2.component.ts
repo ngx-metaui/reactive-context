@@ -3,7 +3,7 @@ import {ChangeDetectionStrategy, Component, DoCheck, OnInit} from '@angular/core
 @Component({
   selector: 'field2',
   template: `
-
+            <<<{{renderedTimes}}>>
     <mc field="birthdate-childView">
       <render></render>
     </mc>
