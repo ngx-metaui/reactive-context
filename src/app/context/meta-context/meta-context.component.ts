@@ -22,7 +22,7 @@ export const ACTIVE_CNTX = 'CurrentMC';
 @Component({
   selector: 'mc',
   template: `
-    {{hasParent ? "WithParent" : "NoParent"}}
+    <b>{{ parentMC ? "WithParent" : "NoParent"}}</b> {{_parentBindings()}}
     <ng-content></ng-content>`,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -32,26 +32,25 @@ export class MetaContextComponent implements OnInit, AfterViewInit, AfterContent
   module: string;
 
   @Input()
-  layout: string;
-
-  @Input()
   operation: string;
 
   @Input()
   class: string;
 
   @Input()
-  object: any;
-
-  @Input()
   field: string;
 
+  /**
+   * Fixes the issue with nesting our code with ng-template where dependency inject does not work and component does not
+   * inject parent
+   */
+  @Input()
+  parentMC: MetaContextComponent;
 
-  hasParent = false;
+  protected _bindingsMap: Map<string, any>;
+
 
   private _viewInitialized: boolean = false;
-  private _contentInitialized: boolean = false;
-  _bindingsMap: Map<string, any>;
   private inputs: { propName: string, templateName: string }[];
   private _contextCreated: boolean;
 
@@ -65,11 +64,13 @@ export class MetaContextComponent implements OnInit, AfterViewInit, AfterContent
               @Optional() @SkipSelf() private _parentMC?: MetaContextComponent) {
     this.inputs = this._cfr.resolveComponentFactory(MetaContextComponent).inputs;
 
+
   }
 
   ngOnInit(): void {
-    this.hasParent = this._parentMC !== undefined && this._parentMC !== null;
-
+    if (!this.parentMC) {
+      this.parentMC = this._parentMC;
+    }
 
     this.initBindings();
     this.pushPop(true);
@@ -94,11 +95,6 @@ export class MetaContextComponent implements OnInit, AfterViewInit, AfterContent
 
   ngAfterContentInit(): void {
     console.log('ngAfterContentInit()', this.debugStrings());
-    if (!this._contentInitialized) {
-      // this.pushPop(false);
-      this._contentInitialized = true;
-    }
-
   }
 
 
@@ -132,7 +128,7 @@ export class MetaContextComponent implements OnInit, AfterViewInit, AfterContent
 
     if (isPush) {
       let line = '(';
-      this._bindingsMap.forEach((v, k) => line += `${k}=${v};`);
+      this._bindingsMap.forEach((v, k) => line += `${k}=>${v}; `);
       line += ')';
 
       stack.push(line);
@@ -157,23 +153,29 @@ export class MetaContextComponent implements OnInit, AfterViewInit, AfterContent
       contexPath += `${record}; `;
     });
 
-    let bindings = '[';
-    this._bindingsMap.forEach((v, k) => bindings = `${k}:${v};`);
-    bindings += ']';
-
-    return `${bindings} | ${contexPath}`;
+    return `${contexPath}`;
   }
 
   private initBindings(): void {
-    this._bindingsMap = this._parentMC ? new Map<string, any>(this._parentMC._bindingsMap) : new Map<string, any>();
+    // this._bindingsMap = this.parentMC ? new Map<string, any>(this.parentMC._bindingsMap) : new Map<string, any>();
+    this._bindingsMap = new Map<string, any>();
 
     this.inputs.forEach((input) => {
-      if (this[input.propName]) {
+      if (input.propName !== 'parentMC' && this[input.propName]) {
         this._bindingsMap.set(input.propName, this[input.propName]);
       }
     });
+  }
 
+  _parentBindings(): string {
+    if (!this.parentMC) {
+      return '';
+    }
+    let bindings = '[';
+    this.parentMC._bindingsMap.forEach((v, k) => bindings += `${k}:${v}; `);
+    bindings += ']';
 
+    return bindings;
   }
 
 
