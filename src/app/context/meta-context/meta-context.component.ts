@@ -13,7 +13,7 @@ import {
   SkipSelf
 } from '@angular/core';
 import {Environment} from '../env.service';
-import {BehaviorSubject} from 'rxjs';
+import {BehaviorSubject, combineLatest} from 'rxjs';
 import {ControlContainer, FormGroup} from '@angular/forms';
 
 export const ACTIVE_CNTX = 'CurrentMC';
@@ -60,9 +60,8 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy, DoChe
 
   protected _bindingsMap: Map<string, any>;
   protected _form: FormGroup;
+
   private inputs: { propName: string, templateName: string }[];
-
-
   private currentStack: string[] = [];
 
 
@@ -80,14 +79,13 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy, DoChe
 
   ngOnInit(): void {
     this._form = (this._controlContainer ? this._controlContainer.control as FormGroup : new FormGroup({}));
-
     if (!this.parentMC) {
       this.parentMC = this._parentMC;
     }
     this._setDebugLevel();
 
-    this._initBindings();
-    this.pushPop(true);
+    this._initInputs();
+    this.pushContextValues(true);
     this._doUpdateViews();
 
     console.log('ngOnInit()', this.currentStack);
@@ -96,11 +94,9 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy, DoChe
   ngOnChanges(changes: SimpleChanges): void {
     console.log('ngOnChanges()', changes);
     if (!this.isFirstChange(changes)) {
-      this._initBindings();
-      this.pushPop(false);
-      this.pushPop(true);
+      this._initInputs();
+      this.pushContextValues(true);
       this._doUpdateViews();
-      this._cd.detectChanges();
     }
 
   }
@@ -120,8 +116,9 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy, DoChe
   }
 
 
-  private pushPop(isPush: boolean): void {
+  private pushContextValues(isPush: boolean): void {
     if (isPush) {
+      this.currentStack.pop();
       let line = '(';
       this._bindingsMap.forEach((v, k) => line += `${k}=>${v}; `);
       line += ')';
@@ -132,7 +129,7 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy, DoChe
   }
 
 
-  private _initBindings(): void {
+  private _initInputs(): void {
     this._bindingsMap = this.parentMC ? new Map<string, any>(this.parentMC._bindingsMap) : new Map<string, any>();
 
     this.inputs.forEach((input) => {
@@ -145,28 +142,21 @@ export class MetaContextComponent implements OnInit, OnChanges, OnDestroy, DoChe
       }
     });
 
-    if (this.object) {
-      this._form.valueChanges.subscribe((item) => {
-        console.log('Value Changed');
-        console.log(item);
-
-        this._doUpdateViews();
-
-      });
-
-      this._form.statusChanges.subscribe((item) => {
+    // if (this.object) {
+    //
+    // }
+    combineLatest([this._form.valueChanges, this._form.statusChanges])
+      .subscribe((item) => {
         console.log('Value Changed');
         console.log(item);
 
         this._doUpdateViews();
       });
-    }
 
   }
 
   private _doUpdateViews(): void {
     this.contextChanged$.next(this.currentStack);
-    // this._cd.markForCheck();
   }
 
   private _setDebugLevel(): void {

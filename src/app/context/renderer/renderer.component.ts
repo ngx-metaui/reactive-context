@@ -28,7 +28,7 @@ export class RendererComponent implements OnInit, DoCheck {
   ngDoCheck(): void {
     console.log('Render => ', this.mc.stack + ' -- ' + this.renderedTimes);
     this.renderedTimes++;
-    this._cd.detectChanges();
+    // this._cd.detectChanges();
 
   }
 
@@ -39,5 +39,6 @@ export class RendererComponent implements OnInit, DoCheck {
     this.mc.stack.forEach((item) => {
       this.stackData += `${item} `;
     });
+    this._cd.markForCheck();
   }
 }
