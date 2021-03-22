@@ -8,7 +8,7 @@ import {MetaContextComponent} from '../meta-context/meta-context.component';
       => {{stackData | json}}  ({{renderedTimes}})
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.Default
 })
 export class RendererComponent implements OnInit, DoCheck {
   renderedTimes = 0;
@@ -28,7 +28,7 @@ export class RendererComponent implements OnInit, DoCheck {
   ngDoCheck(): void {
     console.log('Render => ', this.mc.stack + ' -- ' + this.renderedTimes);
     this.renderedTimes++;
-    // this._cd.detectChanges();
+    this._cd.detectChanges();
 
   }
 

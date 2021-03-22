@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, DoCheck, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck, OnInit} from '@angular/core';
 
 @Component({
   selector: 'field2',
@@ -14,14 +14,16 @@ export class Field2Component implements OnInit, DoCheck {
 
   renderedTimes = 1;
 
-  constructor() {
+  constructor(protected cd: ChangeDetectorRef) {
   }
 
   ngOnInit(): void {
   }
 
   ngDoCheck(): void {
+    console.log('Field2Component do Check');
     this.renderedTimes++;
+    this.cd.detectChanges();
   }
 
 
